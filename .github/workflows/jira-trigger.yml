@@ -1,0 +1,28 @@
+name: Jira Bug Trigger
+on:
+  repository_dispatch:
+    types: [jira_bug_created]
+
+jobs:
+  create_bug_branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create Bug Investigation Branch
+        run: |
+          ISSUE_KEY="${{ github.event.client_payload.issue_key }}"
+          BRANCH_NAME="investigate/$ISSUE_KEY"
+          git checkout -b $BRANCH_NAME
+          # Create a placeholder file to ensure there's a diff
+          echo "Investigating $ISSUE_KEY" > bug_report.txt
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "Investigation start for $ISSUE_KEY"
+          git push origin $BRANCH_NAME
+          
+          # Create the PR using GitHub CLI
+          gh pr create --title "Investigate $ISSUE_KEY" --body "Triggered by Jira. @cursor-bot run" --base main --head $BRANCH_NAME
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
