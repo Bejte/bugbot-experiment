@@ -28,12 +28,12 @@ jobs:
           git add .
           git commit -m "Investigation start for $ISSUE_KEY"
           git push origin $BRANCH_NAME -f
-          
-          # Create the PR (using --fill to handle metadata automatically)
+
+          # Create the PR only if it doesn't exist, otherwise just update the existing one
           gh pr create \
             --title "[$ISSUE_KEY] $SUMMARY" \
             --body "Triggered by Jira report. @cursor-bot run" \
             --base main \
-            --head $BRANCH_NAME
+            --head $BRANCH_NAME || echo "PR already exists, skipping creation."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
