@@ -27,7 +27,7 @@ jobs:
           echo "Investigating: $SUMMARY" > bug_report.txt
           git add .
           git commit -m "Investigation start for $ISSUE_KEY"
-          git push origin $BRANCH_NAME
+          git push origin $BRANCH_NAME -f
           
           # Create the PR (using --fill to handle metadata automatically)
           gh pr create \
