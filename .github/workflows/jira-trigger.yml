@@ -12,17 +12,28 @@ jobs:
       - name: Create Bug Investigation Branch
         run: |
           ISSUE_KEY="${{ github.event.client_payload.issue_key }}"
+          SUMMARY="${{ github.event.client_payload.summary }}"
           BRANCH_NAME="investigate/$ISSUE_KEY"
-          git checkout -b $BRANCH_NAME
-          # Create a placeholder file to ensure there's a diff
-          echo "Investigating $ISSUE_KEY" > bug_report.txt
+          
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
+          
+          # Force delete the branch if it exists locally or remotely to avoid "already exists" errors
+          git push origin --delete $BRANCH_NAME || true
+          git branch -D $BRANCH_NAME || true
+          
+          # Create and push fresh branch
+          git checkout -b $BRANCH_NAME
+          echo "Investigating: $SUMMARY" > bug_report.txt
           git add .
           git commit -m "Investigation start for $ISSUE_KEY"
           git push origin $BRANCH_NAME
           
-          # Create the PR using GitHub CLI
-          gh pr create --title "Investigate $ISSUE_KEY" --body "Triggered by Jira. @cursor-bot run" --base main --head $BRANCH_NAME
+          # Create the PR (using --fill to handle metadata automatically)
+          gh pr create \
+            --title "[$ISSUE_KEY] $SUMMARY" \
+            --body "Triggered by Jira report. @cursor-bot run" \
+            --base main \
+            --head $BRANCH_NAME
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
