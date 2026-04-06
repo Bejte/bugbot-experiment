@@ -15,29 +15,28 @@ jobs:
           SUMMARY="${{ github.event.client_payload.summary }}"
           BRANCH_NAME="investigate/$ISSUE_KEY"
           
+          # Setup Git
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           
-          # 1. Create the branch locally
+          # 1. Create a fresh branch from the current commit
           git checkout -b $BRANCH_NAME
           
-          # 2. DELETE the workflow folder from THIS branch only
-          # This prevents the "workflow permission" error entirely
-          rm -rf .github/workflows
+          # 2. Add the bug report file
+          echo "Investigating Jira Issue: $ISSUE_KEY" > bug_report.txt
+          echo "Summary: $SUMMARY" >> bug_report.txt
+          git add bug_report.txt
+          git commit -m "BugSmith: Starting investigation for $ISSUE_KEY"
           
-          # 3. Add the bug report and commit
-          echo "Investigating: $SUMMARY" > bug_report.txt
-          git add .
-          git commit -m "Investigation start for $ISSUE_KEY - removing workflow folder for security"
+          # 3. PUSH using the PAT (This bypasses the workflow permission error)
+          # We use the PAT to overwrite the remote branch
+          git push https://x-access-token:${{ secrets.JIRA_GITHUB_PAT }}@github.com/${{ github.repository }}.git $BRANCH_NAME -f
           
-          # 4. Push using the default GITHUB_TOKEN (it should work now!)
-          git push origin $BRANCH_NAME -f
-          
-          # 5. Create the PR
+          # 4. Create the Pull Request
           gh pr create \
             --title "[$ISSUE_KEY] $SUMMARY" \
-            --body "Triggered by Jira report. @cursor-bot run" \
+            --body "Triggered by Jira. @cursor-bot run" \
             --base main \
-            --head $BRANCH_NAME
+            --head $BRANCH_NAME || echo "PR already exists"
         env:
           GH_TOKEN: ${{ secrets.JIRA_GITHUB_PAT }}
