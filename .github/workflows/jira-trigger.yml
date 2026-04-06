@@ -12,9 +12,66 @@ steps:
   - name: Checkout repo
     uses: actions/checkout@v4
     with:
-      persist-credentials: false  # 🔥 important: prevents default token interference
+      persist-credentials: false  # 🔥 prevents fallback to GITHUB_TOKEN
 
   - name: Create Bug Investigation Branch
+    env:
+      GH_TOKEN: ${{ secrets.JIRA_GITHUB_PAT }}
+    run: |
+      echo "=== STARTING WORKFLOW ==="
+
+      ISSUE_KEY="${{ github.event.client_payload.issue_key }}"
+      SUMMARY="${{ github.event.client_payload.summary }}"
+      BRANCH_NAME="investigate/$ISSUE_KEY"
+
+      echo "Branch: $BRANCH_NAME"
+
+      # Git setup
+      git config user.name "github-actions"
+      git config user.email "github-actions@github.com"
+
+      # Always start clean from main
+      git fetch origin
+      git checkout main
+      git pull origin main
+
+      # Create new branch
+      git checkout -b "$BRANCH_NAME"
+
+      # Create file
+      echo "Investigating Jira Issue: $ISSUE_KEY" > bug_report.txt
+      echo "Summary: $SUMMARY" >> bug_report.txt
+
+      git add bug_report.txt
+      git commit -m "BugSmith: Starting investigation for $ISSUE_KEY"
+
+  - name: Debug Git State
+    run: |
+      echo "---- REMOTES BEFORE FIX ----"
+      git remote -v
+
+      echo "---- LAST COMMIT FILES ----"
+      git log --name-only -1
+
+  - name: Push using PAT (CRITICAL FIX)
+    env:
+      GH_TOKEN: ${{ secrets.JIRA_GITHUB_PAT }}
+    run: |
+      ISSUE_KEY="${{ github.event.client_payload.issue_key }}"
+      BRANCH_NAME="investigate/$ISSUE_KEY"
+
+      echo "=== USING PAT PUSH ==="
+
+      # 🔥 FORCE Git to use PAT (this is the fix)
+      git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
+
+      echo "---- REMOTES AFTER FIX ----"
+      git remote -v
+
+      # Push branch
+      git push origin "$BRANCH_NAME" --force
+
+  - name: Create Pull Request
     env:
       GH_TOKEN: ${{ secrets.JIRA_GITHUB_PAT }}
     run: |
@@ -22,21 +79,6 @@ steps:
       SUMMARY="${{ github.event.client_payload.summary }}"
       BRANCH_NAME="investigate/$ISSUE_KEY"
 
-      git config user.name "github-actions"
-      git config user.email "github-actions@github.com"
-
-      git checkout -b "$BRANCH_NAME"
-
-      echo "Investigating Jira Issue: $ISSUE_KEY" > bug_report.txt
-      echo "Summary: $SUMMARY" >> bug_report.txt
-
-      git add bug_report.txt
-      git commit -m "BugSmith: Starting investigation for $ISSUE_KEY"
-
-      # ✅ Push using PAT (with workflow permission)
-      git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git "$BRANCH_NAME" --force
-
-      # ✅ Create PR
       gh pr create \
         --title "[$ISSUE_KEY] $SUMMARY" \
         --body "Triggered by Jira. @cursor-bot run" \
