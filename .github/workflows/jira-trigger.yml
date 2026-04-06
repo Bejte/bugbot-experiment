@@ -27,7 +27,7 @@ jobs:
           echo "Investigating: $SUMMARY" > bug_report.txt
           git add .
           git commit -m "Investigation start for $ISSUE_KEY"
-          git push origin $BRANCH_NAME -f
+          git push https://${{ secrets.JIRA_GITHUB_PAT }}@github.com/${{ github.repository }}.git $BRANCH_NAME -f
 
           # Create the PR only if it doesn't exist, otherwise just update the existing one
           gh pr create \
